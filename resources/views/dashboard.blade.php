@@ -50,7 +50,9 @@
                 </div>
 
                 <div x-show="selectedComponent === 'stock'" x-transition>
-                    <livewire:stock-component />
+                    {{-- <livewire:stock-component /> --}}
+                    <livewire:product-management />
+                    {{-- <livewire:stock-manager /> --}}
                 </div>
 
                 <div x-show="selectedComponent === 'sales'" x-transition>

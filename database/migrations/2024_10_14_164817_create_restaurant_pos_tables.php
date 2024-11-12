@@ -28,7 +28,7 @@ class CreateRestaurantPosTables extends Migration
             $table->date('expiry_date')->nullable();
             $table->foreignId('supplier_id')->constrained()->onDelete('cascade');
             $table->string('batch_number')->nullable();
-            $table->json('images')->nullable(); // Store multiple image paths in JSON format
+            $table->json('images')->nullable();
             $table->timestamps();
         });
 

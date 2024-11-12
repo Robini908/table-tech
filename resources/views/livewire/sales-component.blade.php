@@ -1,12 +1,5 @@
-<div class="p-5 bg-gray-50">
-    <!-- Messages -->
-    <div class="mb-4">
-        @foreach($messages as $message)
-            <div class="alert alert-{{ $message['type'] }} p-3 mb-4 rounded bg-gray-100">
-                {{ $message['text'] }}
-            </div>
-        @endforeach
-    </div>
+<div x-data="{ messages: @entangle('messages'), timeout: 3000 }" class="bg-white p-6 rounded-lg shadow-lg dark:bg-gray-800">
+    <x-alpine-messages/>
 
     <!-- Sales Form -->
     @if($showForm)

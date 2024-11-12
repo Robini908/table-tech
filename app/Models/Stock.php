@@ -20,12 +20,12 @@ class Stock extends Model
         'expiry_date',
         'supplier_id',
         'batch_number',
-        'image',
+        'images',
     ];
 
-    // Cast expiry_date to a Carbon instance
     protected $casts = [
-        'expiry_date' => 'datetime', // Ensure expiry_date is treated as a Carbon instance
+        'expiry_date' => 'datetime',
+        'images' => 'array', // Cast JSON images to array
     ];
 
     public function supplier(): BelongsTo
@@ -46,5 +46,11 @@ class Stock extends Model
     public function purchaseOrderItems(): HasMany
     {
         return $this->hasMany(PurchaseOrderItem::class);
+    }
+
+    // Calculate stock value automatically (cost_price * quantity)
+    public function getStockValueAttribute()
+    {
+        return $this->cost_price * $this->quantity;
     }
 }
