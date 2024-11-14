@@ -67,9 +67,19 @@ class StockManagement extends Component
         $this->trackResellableItems();
     }
 
+
     public function render()
     {
-        return view('livewire.stock-management');
+        // Filter logs if a search term is entered
+        $filteredLogs = empty($this->searchTerm)
+            ? $this->excessDemandLogs
+            : array_filter($this->excessDemandLogs, fn($log) =>
+                stripos($log['product'], $this->searchTerm) !== false
+            );
+
+        return view('livewire.stock-management', [
+            'excessDemandLogs' => $filteredLogs,
+        ]);
     }
 
 
@@ -336,116 +346,82 @@ class StockManagement extends Component
 
 
 
-    // Reset form method
-
-
-    // public function trackExcessDemand()
-    // {
-    //     try {
-    //         $this->excessDemandLogs = [];
-
-    //         // Check if there are sales to process
-    //         if (!$this->sales || $this->sales->isEmpty()) {
-    //             throw new \Exception("No sales data available to track excess demand.");
-    //         }
-
-    //         foreach ($this->sales as $sale) {
-    //             // Access product directly from sale relationship
-    //             $product = $sale->product; // Access related product
-
-    //             if ($product) {
-    //                 // Find the corresponding stock for the product
-    //                 $stock = Stock::where('product_id', $product->id)->first();
-
-    //                 if (!$stock) {
-    //                     // If no stock data is found for the product, skip it
-    //                     continue;
-    //                 }
-
-    //                 // Determine if there is excess demand
-    //                 $excessDemand = $product->quantity_sold > $stock->quantity;
-
-    //                 if ($excessDemand) {
-    //                     // Log excess demand scenario
-    //                     $this->excessDemandLogs[] = [
-    //                         'product' => $product->name,
-    //                         'requested' => $product->quantity_sold,
-    //                         'available' => $stock->quantity,
-    //                         'date' => $sale->created_at,
-    //                         'excessDemand' => true, // Flag for excess demand
-    //                     ];
-    //                 } else {
-    //                     // Log normal demand scenario
-    //                     $this->excessDemandLogs[] = [
-    //                         'product' => $product->name,
-    //                         'requested' => $product->quantity_sold,
-    //                         'available' => $stock->quantity,
-    //                         'date' => $sale->created_at,
-    //                         'excessDemand' => false, // No excess demand
-    //                     ];
-    //                 }
-    //             }
-    //         }
-
-    //         // Optional: Sort logs by date, with the most recent first
-    //         usort($this->excessDemandLogs, function ($a, $b) {
-    //             return strtotime($b['date']) - strtotime($a['date']);
-    //         });
-
-    //         // If no excess demand logs found, handle the case
-    //         if (empty($this->excessDemandLogs)) {
-    //             throw new \Exception("No excess demand found in the sales data.");
-    //         }
-    //     } catch (\Exception $e) {
-    //         // Handle errors and display messages to the user
-    //         $this->errorMessage = $e->getMessage();
-    //         $this->excessDemandLogs = [];
-    //     }
-    // }
-
+    
     public function trackExcessDemand()
-{
-    try {
-        $this->excessDemandLogs = [];
+    {
+        try {
+            $this->excessDemandLogs = [];
 
-        if (!$this->sales || $this->sales->isEmpty()) {
-            throw new \Exception("No sales data available to track excess demand.");
-        }
+            // Fetch sales with related product data
+            $sales = Sale::with('product')->get();
 
-        foreach ($this->sales as $sale) {
-            $product = $sale->product;
-
-            if ($product) {
-                $stock = Stock::where('product_id', $product->id)->first();
-
-                if (!$stock) {
-                    continue;
-                }
-
-                $excessDemand = $product->quantity_sold > $stock->quantity;
-
-                $this->excessDemandLogs[] = [
-                    'product' => $product->name,
-                    'sold' => $product->quantity_sold,  // Renamed 'requested' to 'sold'
-                    'available' => $stock->quantity,
-                    'date' => $sale->created_at,
-                    'excessDemand' => $excessDemand,
-                ];
+            if ($sales->isEmpty()) {
+                throw new \Exception("No sales data available to track excess demand.");
             }
-        }
 
-        usort($this->excessDemandLogs, fn($a, $b) => strtotime($b['date']) - strtotime($a['date']));
+            foreach ($sales as $sale) {
+                $product = $sale->product;
 
-        if (empty($this->excessDemandLogs)) {
-            throw new \Exception("No excess demand found in the sales data.");
+                if ($product) {
+                    // Fetch stock quantity for the product
+                    $stock = Stock::where('product_id', $product->id)->first();
+
+                    if (!$stock) {
+                        continue; // Skip if no stock record exists
+                    }
+
+                    $excessDemand = $sale->quantity > $stock->quantity;
+
+                    // Add log if demand exceeds availability
+                    $this->excessDemandLogs[] = [
+                        'product' => $product->name,
+                        'sold' => $sale->quantity,
+                        'available' => $stock->quantity,
+                        'date' => $sale->created_at,
+                        'excessDemand' => $excessDemand,
+                    ];
+                }
+            }
+
+            // Sort logs by date, descending
+            usort($this->excessDemandLogs, fn($a, $b) => strtotime($b['date']) - strtotime($a['date']));
+
+            if (empty($this->excessDemandLogs)) {
+                throw new \Exception("No excess demand found in the sales data.");
+            }
+        } catch (\Exception $e) {
+            $this->errorMessage = $e->getMessage();
+            $this->excessDemandLogs = [];
         }
-    } catch (\Exception $e) {
-        $this->errorMessage = $e->getMessage();
-        $this->excessDemandLogs = [];
     }
-}
 
+    public function downloadCSV()
+    {
+        // Generate CSV data from excess demand logs
+        $csvData = [];
+        $csvData[] = ['Product', 'Sold Quantity', 'Available Quantity', 'Date', 'Status'];
+        foreach ($this->excessDemandLogs as $log) {
+            $csvData[] = [
+                $log['product'],
+                $log['sold'],
+                $log['available'],
+                $log['date']->format('Y-m-d H:i:s'),
+                $log['excessDemand'] ? 'Excess Demand' : 'Normal'
+            ];
+        }
 
+        // Write CSV to output
+        $fileName = 'excess_demand_logs_' . now()->format('Y_m_d_His') . '.csv';
+        $csvFile = fopen('/mnt/data/' . $fileName, 'w');
+        foreach ($csvData as $line) {
+            fputcsv($csvFile, $line);
+        }
+        fclose($csvFile);
+
+        return response()->download('/mnt/data/' . $fileName);
+    }
+
+    
 
 
 
