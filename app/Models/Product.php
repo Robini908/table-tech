@@ -4,46 +4,33 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Spatie\MediaLibrary\Models\Media;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Product extends Model implements HasMedia
-
+class Product extends Model
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory;
 
     protected $fillable = [
         'name',
-        'category_id',
+        'price',
         'description',
-        'quantity',
-        'cost_price',
-        'selling_price',
-        'status',
+        'category_id', 
     ];
 
-    // Relationship to category
     public function category()
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Category::class); // This defines the relationship to Category
     }
 
-    // For handling media attachments (images)
-    public function registerMediaCollections(): void
+    public function stocks()
     {
-        $this->addMediaCollection('product_images')->singleFile();
+        return $this->hasMany(Stock::class);
     }
 
-    // Optional: Get the first image from media collection
-    public function getFirstImageAttribute()
+    public function sales()
     {
-        return $this->getFirstMediaUrl('product_images');
-    }
-
-    // Optional: Get all images from media collection
-    public function getAllImagesAttribute()
-    {
-        return $this->getMedia('product_images');
+        return $this->hasMany(Sale::class);
     }
 }
+
+
+

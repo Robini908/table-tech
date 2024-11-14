@@ -4,22 +4,33 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Sale extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'date',
-        'quantity_sold',
-        'total_amount',
-        'profit',
-        'is_returned',
-        'stock_id', // Add this if you want to link to stock
+        'product_id',
+        'stock_id',
+        'quantity',
+        'price_per_unit',
+        'total_price',
     ];
 
-    public function stock(): BelongsTo
+    // This is kept for future reference if you need to recalculate the total price
+    public function calculateTotalPrice()
+    {
+        // Calculate total price as quantity * price per unit
+        $this->total_price = $this->quantity * $this->price_per_unit;
+        $this->save();
+    }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function stock()
     {
         return $this->belongsTo(Stock::class);
     }

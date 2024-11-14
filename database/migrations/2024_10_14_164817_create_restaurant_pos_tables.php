@@ -16,32 +16,51 @@ class CreateRestaurantPosTables extends Migration
             $table->string('address');
             $table->timestamps();
         });
+        Schema::create('categories', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->timestamps();
+        });
+
+        Schema::create('products', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->decimal('price', 8, 2); // Retail price per unit, for reference
+            $table->text('description')->nullable();
+            $table->unsignedBigInteger('category_id')->nullable(); // Add category_id as a foreign key
+            $table->foreign('category_id')->references('id')->on('categories')->onDelete('set null'); // Add foreign key constraint
+            $table->timestamps();
+        });
 
         // Stock Table
         Schema::create('stocks', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->integer('quantity');
-            $table->string('unit');
-            $table->decimal('cost_price', 10, 2);
-            $table->decimal('selling_price', 10, 2);
-            $table->date('expiry_date')->nullable();
-            $table->foreignId('supplier_id')->constrained()->onDelete('cascade');
-            $table->string('batch_number')->nullable();
-            $table->json('images')->nullable();
+            $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->integer('quantity'); // e.g., number of packets or units
+            $table->decimal('price_per_unit', 8, 2); // Cost per unit
+            $table->decimal('output_per_unit', 8, 2); // Expected output (e.g., servings per packet)
+            $table->integer('available_servings')->default(0); // Auto-calculated based on usage
             $table->timestamps();
         });
 
         // Sales Table
         Schema::create('sales', function (Blueprint $table) {
             $table->id();
-            $table->date('date');
-            $table->string('item_name'); // Generic item name linked to stock
-            $table->foreignId('stock_id')->constrained()->onDelete('cascade'); // Link to stock item
-            $table->integer('quantity_sold');
-            $table->decimal('total_amount', 10, 2);
-            $table->decimal('profit', 10, 2);
-            $table->boolean('is_returned')->default(false);
+            $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->foreignId('stock_id')->constrained()->onDelete('cascade');
+            $table->integer('quantity'); // Quantity sold
+            $table->decimal('price_per_unit', 8, 2); // Price per unit at sale time
+            $table->decimal('total_price', 10, 2); // Auto-calculated as quantity * price_per_unit
+            $table->timestamps();
+        });
+
+        Schema::create('excess_demand', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->foreignId('sale_id')->nullable()->constrained()->onDelete('cascade');
+            $table->integer('requested_quantity'); // Requested quantity that exceeded stock
+            $table->integer('available_servings'); // Available stock at the time of request
+            $table->integer('excess_quantity'); // Difference between requested and available stock
             $table->timestamps();
         });
 
@@ -82,8 +101,11 @@ class CreateRestaurantPosTables extends Migration
         Schema::dropIfExists('waste_management');
         Schema::dropIfExists('purchase_order_items');
         Schema::dropIfExists('purchase_orders');
+        Schema::dropIfExists('excess_demand');
         Schema::dropIfExists('sales');
         Schema::dropIfExists('stocks');
+        Schema::dropIfExists('products');
+        Schema::dropIfExists('categories');
         Schema::dropIfExists('suppliers');
     }
 }
