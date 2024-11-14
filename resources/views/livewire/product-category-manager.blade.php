@@ -83,32 +83,32 @@
     </div>
 
     <!-- Product Modal -->
-    <x-modal wire:model="isProductModalOpen">
+    <x-modal wire:model.live="isProductModalOpen">
         <x-slot name="title">Add/Edit Product</x-slot>
 
         <x-slot name="content">
             <form>
                 <div class="form-group mb-4">
                     <x-label for="product_name" class="text-gray-700">Product Name</x-label>
-                    <x-input id="product_name" type="text" class="form-control" wire:model="product_name" />
+                    <x-input id="product_name" type="text" class="form-control" wire:model.live="product_name" />
                     @error('product_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
 
                 <div class="form-group mb-4">
                     <x-label for="product_price" class="text-gray-700">Price</x-label>
-                    <x-input id="product_price" type="text" class="form-control" wire:model="product_price" />
+                    <x-input id="product_price" type="text" class="form-control" wire:model.live="product_price" />
                     @error('product_price') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
 
                 <div class="form-group mb-4">
                     <x-label for="product_description" class="text-gray-700">Description</x-label>
-                    <textarea id="product_description" class="form-control" wire:model="product_description"></textarea>
+                    <textarea id="product_description" class="form-control" wire:model.live="product_description"></textarea>
                     @error('product_description') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
 
                 <div class="form-group mb-4">
                     <x-label for="product_category" class="text-gray-700">Category</x-label>
-                    <select id="product_category" class="form-control" wire:model="product_category">
+                    <select id="product_category" class="form-control" wire:model.live="product_category">
                         <option value="">Select Category</option>
                         @foreach ($categories as $category)
                             <option value="{{ $category->id }}">{{ $category->name }}</option>
@@ -134,14 +134,14 @@
     </x-modal>
 
     <!-- Category Modal -->
-    <x-modal wire:model="isCategoryModalOpen">
+    <x-modal wire:model.live="isCategoryModalOpen">
         <x-slot name="title">Add/Edit Category</x-slot>
 
         <x-slot name="content">
             <form>
                 <div class="form-group mb-4">
                     <x-label for="category_name" class="text-gray-700">Category Name</x-label>
-                    <x-input id="category_name" type="text" class="form-control" wire:model="category_name" />
+                    <x-input id="category_name" type="text" class="form-control" wire:model.live="category_name" />
                     @error('category_name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
             </form>
