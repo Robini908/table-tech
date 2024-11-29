@@ -12,7 +12,8 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
         "livewire/livewire": "^3.0",
-        "spatie/laravel-medialibrary": "^11.10"
+        "spatie/laravel-medialibrary": "^11.10",
+        "spatie/livewire-filepond": "^1.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

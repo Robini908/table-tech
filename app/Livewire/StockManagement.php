@@ -57,6 +57,7 @@ class StockManagement extends Component
 
     public function mount()
     {
+        // Load products to ensure you can access them for price lookup
         $this->products = Product::all();
         $this->stocks = Stock::with('product')->get();
         $this->sales = Sale::whereDate('created_at', Carbon::today())->get();
@@ -65,7 +66,11 @@ class StockManagement extends Component
         $this->calculateProfitLoss();
         $this->trackExcessDemand();
         $this->trackResellableItems();
+        $this->price_per_unit = 0;
+        $this->available_servings = 0;
+        
     }
+
 
 
     public function render()
@@ -73,7 +78,9 @@ class StockManagement extends Component
         // Filter logs if a search term is entered
         $filteredLogs = empty($this->searchTerm)
             ? $this->excessDemandLogs
-            : array_filter($this->excessDemandLogs, fn($log) =>
+            : array_filter(
+                $this->excessDemandLogs,
+                fn($log) =>
                 stripos($log['product'], $this->searchTerm) !== false
             );
 
@@ -87,6 +94,11 @@ class StockManagement extends Component
 
     public function addStock()
     {
+        // Auto-fill the price_per_unit from the selected product
+        $product = Product::find($this->product_id);
+        $this->price_per_unit = $product ? $product->price : 0;
+
+        // Validate and create the stock record
         $validated = $this->validate([
             'product_id' => 'required|exists:products,id',
             'newStockQuantity' => 'required|numeric|min:1',
@@ -94,6 +106,7 @@ class StockManagement extends Component
             'output_per_unit' => 'required|numeric|min:1',
         ]);
 
+        // Create the stock entry
         Stock::create([
             'product_id' => $this->product_id,
             'quantity' => $this->newStockQuantity,
@@ -117,29 +130,44 @@ class StockManagement extends Component
         $this->output_per_unit = $stock->output_per_unit;
         $this->available_servings = $stock->available_servings;
         $this->editingStock = true;
+
+        // When editing, auto-fill the price based on the selected product
+        $product = Product::find($this->product_id);
+        $this->price_per_unit = $product ? $product->price : 0;
     }
 
     public function updateStock()
     {
+        // Validate the input fields
         $validated = $this->validate([
             'newStockQuantity' => 'required|numeric|min:1',
             'price_per_unit' => 'required|numeric|min:0',
             'output_per_unit' => 'required|numeric|min:1',
         ]);
 
+        // Calculate the available_servings before updating
+        $availableServings = $this->newStockQuantity * $this->output_per_unit;
+
+        // Update the stock record
         $stock = Stock::find($this->stock_id);
         $stock->update([
             'quantity' => $this->newStockQuantity,
             'price_per_unit' => $this->price_per_unit,
             'output_per_unit' => $this->output_per_unit,
-            'available_servings' => $this->newStockQuantity * $this->output_per_unit,
+            'available_servings' => $availableServings,  // Use the calculated value here
         ]);
 
+        // Update the Livewire property if necessary
+        $this->available_servings = $availableServings;
+
+        // Reset input fields and other actions
         $this->resetInputFields();
         $this->editingStock = false;
         $this->updateStockStatus();
         session()->flash('message', 'Stock updated successfully!');
     }
+
+
     public function deleteStock($stockId)
     {
         Stock::find($stockId)->delete();
@@ -158,32 +186,32 @@ class StockManagement extends Component
         $this->profitBreakdown = [];  // Detailed profit breakdown by product
         $this->recentSales = [];  // Recent sales data
         $monthlyData = [];  // Monthly data aggregation
-    
+
         foreach ($this->sales as $sale) {
             // Check if sale has a related product
             $product = $sale->product;  // Access product via the relationship
-    
+
             if ($product) {
                 // Find the corresponding stock for the product
                 $stock = Stock::where('product_id', $product->id)->first();
-    
+
                 if ($stock) {
                     // Calculate profit for the product sold
                     $profit = $sale->quantity * ($sale->price_per_unit - $product->price);
                     $this->profitLoss += $profit;
-    
+
                     // Profit Breakdown for each product
                     $this->profitBreakdown[] = [
                         'name' => $product->name,
                         'profit' => number_format($profit, 2),
                     ];
-    
+
                     // Recent Sales Data (Product, Amount)
                     $this->recentSales[] = [
                         'product_name' => $product->name,
                         'sale_amount' => number_format($profit, 2),
                     ];
-    
+
                     // Monthly Profit Trend Data (Aggregating by Month)
                     $month = $sale->created_at->format('Y-m'); // Format as Year-Month
                     if (!isset($monthlyData[$month])) {
@@ -193,29 +221,29 @@ class StockManagement extends Component
                 }
             }
         }
-    
+
         // Sort monthly data by date
         ksort($monthlyData);
-    
+
         // Prepare data for charts (optional: pass it to view or any other processing)
         $this->monthlyTrend = array_map(function ($month, $amount) {
             return ['month' => $month, 'amount' => $amount];
         }, array_keys($monthlyData), $monthlyData);
-        
+
         // Limit the recentSales to 10 items here
         $this->recentSales = collect($this->recentSales)->take(10);
-    
+
         // Display a logical alert for clarity
         $this->alert('info', 'Profit & Loss Calculation Completed', [
             'text' => 'The profit and loss has been successfully calculated for the recent sales, including a breakdown by product and monthly trend data.',
         ]);
     }
-    
 
 
 
 
-   
+
+
 
     public function updated($propertyName)
     {
@@ -238,7 +266,7 @@ class StockManagement extends Component
     {
         try {
             $stock = Stock::find($stockId);
-    
+
             if ($stock) {
                 $this->stock_id = $stock->id;
                 $this->product_id = $stock->product_id;
@@ -254,22 +282,22 @@ class StockManagement extends Component
             $this->alert('error', 'Error: ' . $e->getMessage(), ['toast' => false]);
         }
     }
-    
+
     public function createSale()
     {
         try {
             $this->validate();
-    
+
             // Check if quantity to be sold exceeds available stock
             $stock = Stock::find($this->stock_id);
             if ($this->quantity > $stock->quantity) {
                 $this->alert('error', 'Sale quantity exceeds available stock!', ['toast' => true]);
                 return; // Exit if stock is insufficient
             }
-    
+
             // Dynamically calculate total price before saving
             $this->calculateTotalAmount();
-    
+
             // Create Sale Record with stock_id
             $sale = Sale::create([
                 'stock_id' => $this->stock_id,
@@ -278,16 +306,16 @@ class StockManagement extends Component
                 'price_per_unit' => $this->price_per_unit,
                 'total_price' => $this->totalAmount,
             ]);
-    
+
             // Deduct stock after sale
             $this->deductStock($sale);
-    
+
             // Reset form after successful sale
             $this->resetForm();
-    
+
             // Hide form after successful sale
             $this->showSaleForm = false;
-    
+
             // Success message
             $this->alert('success', 'Sale successfully recorded!', ['toast' => true]);
         } catch (\Exception $e) {
@@ -308,13 +336,13 @@ class StockManagement extends Component
     {
         try {
             $stock = Stock::find($sale->stock_id);
-    
+
             if ($stock && $sale->quantity <= $stock->quantity) {
                 // Deduct stock and update available servings
                 $stock->quantity -= $sale->quantity;
                 $stock->available_servings -= $sale->quantity * $stock->output_per_unit;
                 $stock->save();
-    
+
                 // Disable sales if stock is depleted
                 if ($stock->quantity == 0) {
                     $this->alert('warning', 'Stock is fully depleted! Needs restocking.', ['toast' => true]);
@@ -324,7 +352,7 @@ class StockManagement extends Component
             } else {
                 // Handle excess demand logic
                 $excessQuantity = $sale->quantity - $stock->quantity;
-    
+
                 ExcessDemand::create([
                     'product_id' => $sale->product_id,
                     'sale_id' => $sale->id,
@@ -332,7 +360,7 @@ class StockManagement extends Component
                     'available_servings' => $stock->available_servings,
                     'excess_quantity' => $excessQuantity,
                 ]);
-    
+
                 // Update stock to zero when it's exhausted
                 $stock->quantity = 0;
                 $stock->available_servings = 0;
@@ -342,11 +370,11 @@ class StockManagement extends Component
             $this->alert('error', 'Error deducting stock: ' . $e->getMessage(), ['toast' => false]);
         }
     }
-    
 
 
 
-    
+
+
     public function trackExcessDemand()
     {
         try {
@@ -421,7 +449,7 @@ class StockManagement extends Component
         return response()->download('/mnt/data/' . $fileName);
     }
 
-    
+
 
 
 
@@ -429,13 +457,13 @@ class StockManagement extends Component
     public function trackResellableItems()
     {
         $this->resellableItems = [];
-    
+
         foreach ($this->stocks as $stock) {
             // Ensure stock quantity is non-negative and check product expiry
             if ($stock->quantity >= 0) {
                 $status = $this->getStockStatus($stock);
                 $restockNeeded = $this->checkRestockNeeded($stock);
-    
+
                 // Add products with positive stock, including additional data for restocking
                 if ($stock->quantity > 0) {
                     $this->resellableItems[] = [
@@ -449,13 +477,13 @@ class StockManagement extends Component
                 }
             }
         }
-    
+
         // Check if no resellable items are found and show a message
         if (empty($this->resellableItems)) {
             session()->flash('message', 'No resellable items available at the moment.');
         }
     }
-    
+
 
     // Helper method to determine stock status
     private function getStockStatus($stock)

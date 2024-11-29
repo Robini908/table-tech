@@ -29,8 +29,10 @@ class CreateRestaurantPosTables extends Migration
             $table->text('description')->nullable();
             $table->unsignedBigInteger('category_id')->nullable(); // Add category_id as a foreign key
             $table->foreign('category_id')->references('id')->on('categories')->onDelete('set null'); // Add foreign key constraint
+            $table->string('sku')->nullable(); // Add SKU column, nullable
             $table->timestamps();
         });
+        
 
         // Stock Table
         Schema::create('stocks', function (Blueprint $table) {
@@ -40,8 +42,10 @@ class CreateRestaurantPosTables extends Migration
             $table->decimal('price_per_unit', 8, 2); // Cost per unit
             $table->decimal('output_per_unit', 8, 2); // Expected output (e.g., servings per packet)
             $table->integer('available_servings')->default(0); // Auto-calculated based on usage
+            $table->string('stock_batch_number')->nullable(); // Add stock_batch_number column, nullable
             $table->timestamps();
         });
+        
 
         // Sales Table
         Schema::create('sales', function (Blueprint $table) {

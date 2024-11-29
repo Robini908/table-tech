@@ -6,6 +6,7 @@ namespace App\Livewire;
 use Livewire\Component;
 use App\Models\Product;
 use Illuminate\Database\QueryException;
+
 use App\Models\Category;
 use Jantinnerezo\LivewireAlert\LivewireAlert;  // Import LivewireAlert
 
@@ -14,6 +15,8 @@ class ProductCategoryManager extends Component
     use LivewireAlert;  // Use the LivewireAlert trait
 
     public $products;
+    public $product;
+
     public $categories;
     public $product_id, $product_name, $product_price, $product_description, $product_category;
     public $category_id, $category_name;
