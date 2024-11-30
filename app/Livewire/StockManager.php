@@ -152,108 +152,140 @@ class StockManager extends Component
     }
 
 
-    
+
     public function addStock()
-{
-    $product = Product::find($this->product_id);
-    $this->price_per_unit = $product ? $product->price : 0;
-    $productName = $product ? $product->name : 'Product'; // Default to 'Product' if not found
+    {
+        $product = Product::find($this->product_id);
+        $this->price_per_unit = $product ? $product->price : 0;
+        $productName = $product ? $product->name : 'Product'; // Default to 'Product' if not found
 
-    // Check if stock already exists for the product
-    if ($this->isDuplicateStock($this->product_id)) {
-        $this->alert('error', 'Stock for "' . $productName . '" already exists.', [
-            'position' => 'center',
-            'timer' => 30000,
-            'toast' => false,
-            'showConfirmButton' => true,
+        // Check if stock already exists for the product
+        if ($this->isDuplicateStock($this->product_id)) {
+            $this->alert('error', 'Stock for "' . $productName . '" already exists.', [
+                'position' => 'center',
+                'timer' => 30000,
+                'toast' => false,
+                'showConfirmButton' => true,
+            ]);
+            return;
+        }
+
+        // Validate stock quantity is greater than zero
+        if (!$this->isValidStockQuantity($this->newStockQuantity)) {
+            $this->alert('error', 'Stock quantity for "' . $productName . '" must be greater than zero.', [
+                'position' => 'center',
+                'timer' => 30000,
+                'toast' => false,
+                'showConfirmButton' => true,
+            ]);
+            return;
+        }
+
+        // Ensure price consistency with previous stock entries
+        if (!$this->isConsistentPrice($this->product_id, $this->price_per_unit)) {
+            $this->alert('error', 'Price per unit for "' . $productName . '" is inconsistent with previous stock entries.', [
+                'position' => 'center',
+                'timer' => 30000,
+                'toast' => false,
+                'showConfirmButton' => true,
+            ]);
+            return;
+        }
+
+        // Check if the addition exceeds storage capacity
+        if (!$this->hasSufficientCapacity($this->newStockQuantity)) {
+            $this->alert('error', 'Adding stock for "' . $productName . '" exceeds storage capacity.', [
+                'position' => 'center',
+                'timer' => 30000,
+                'toast' => false,
+                'showConfirmButton' => true,
+            ]);
+            return;
+        }
+
+        // Validate input fields
+        $validated = $this->validate([
+            'product_id' => 'required|exists:products,id',
+            'newStockQuantity' => 'required|numeric|min:1',
+            'price_per_unit' => 'required|numeric|min:0',
+            'output_per_unit' => 'required|numeric|min:1',
         ]);
-        return;
+
+        // Save stock entry with error handling
+        try {
+            $stock = Stock::create([
+                'product_id' => $this->product_id,
+                'quantity' => $this->newStockQuantity,
+                'price_per_unit' => $this->price_per_unit,
+                'output_per_unit' => $this->output_per_unit,
+                'available_servings' => $this->newStockQuantity * $this->output_per_unit,
+            ]);
+
+            // Reset fields and update stock status
+            $this->resetInputFields();
+            $this->updateStockStatus();
+
+            // Success notification
+            $this->alert('success', 'Stock for "' . $productName . '" added successfully!', [
+                'position' => 'center',
+                'timer' => 30000,
+                'toast' => false,
+                'showConfirmButton' => true,
+            ]);
+        } catch (QueryException $e) {
+            Log::error('Database error while adding stock: ' . $e->getMessage());
+            $this->alert('error', 'An error occurred while adding stock: ' . $e->getMessage(), [
+                'position' => 'center',
+                'timer' => 30000,
+                'toast' => false,
+                'showConfirmButton' => true,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error while adding stock: ' . $e->getMessage());
+            $this->alert('error', 'An error occurred: ' . $e->getMessage(), [
+                'position' => 'center',
+                'timer' => 30000,
+                'toast' => false,
+                'showConfirmButton' => true,
+            ]);
+        }
+    }
+    public function editStock($stockId)
+    {
+        $stock = Stock::find($stockId);
+        $this->stock_id = $stock->id;
+        $this->product_id = $stock->product_id;
+        $this->newStockQuantity = $stock->quantity;
+        $this->price_per_unit = $stock->price_per_unit;
+        $this->output_per_unit = $stock->output_per_unit;
+        $this->available_servings = $stock->available_servings;
+        $this->editingStock = true;
     }
 
-    // Validate stock quantity is greater than zero
-    if (!$this->isValidStockQuantity($this->newStockQuantity)) {
-        $this->alert('error', 'Stock quantity for "' . $productName . '" must be greater than zero.', [
-            'position' => 'center',
-            'timer' => 30000,
-            'toast' => false,
-            'showConfirmButton' => true,
+    public function updateStock()
+    {
+        $validated = $this->validate([
+            'newStockQuantity' => 'required|numeric|min:1',
+            'price_per_unit' => 'required|numeric|min:0',
+            'output_per_unit' => 'required|numeric|min:1',
         ]);
-        return;
-    }
 
-    // Ensure price consistency with previous stock entries
-    if (!$this->isConsistentPrice($this->product_id, $this->price_per_unit)) {
-        $this->alert('error', 'Price per unit for "' . $productName . '" is inconsistent with previous stock entries.', [
-            'position' => 'center',
-            'timer' => 30000,
-            'toast' => false,
-            'showConfirmButton' => true,
-        ]);
-        return;
-    }
-
-    // Check if the addition exceeds storage capacity
-    if (!$this->hasSufficientCapacity($this->newStockQuantity)) {
-        $this->alert('error', 'Adding stock for "' . $productName . '" exceeds storage capacity.', [
-            'position' => 'center',
-            'timer' => 30000,
-            'toast' => false,
-            'showConfirmButton' => true,
-        ]);
-        return;
-    }
-
-    // Validate input fields
-    $validated = $this->validate([
-        'product_id' => 'required|exists:products,id',
-        'newStockQuantity' => 'required|numeric|min:1',
-        'price_per_unit' => 'required|numeric|min:0',
-        'output_per_unit' => 'required|numeric|min:1',
-    ]);
-
-    // Save stock entry with error handling
-    try {
-        $stock = Stock::create([
-            'product_id' => $this->product_id,
+        $stock = Stock::find($this->stock_id);
+        $stock->update([
             'quantity' => $this->newStockQuantity,
             'price_per_unit' => $this->price_per_unit,
             'output_per_unit' => $this->output_per_unit,
             'available_servings' => $this->newStockQuantity * $this->output_per_unit,
         ]);
 
-        // Reset fields and update stock status
         $this->resetInputFields();
+        $this->editingStock = false;
         $this->updateStockStatus();
-
-        // Success notification
-        $this->alert('success', 'Stock for "' . $productName . '" added successfully!', [
-            'position' => 'center',
-            'timer' => 30000,
-            'toast' => false,
-            'showConfirmButton' => true,
-        ]);
-    } catch (QueryException $e) {
-        Log::error('Database error while adding stock: ' . $e->getMessage());
-        $this->alert('error', 'An error occurred while adding stock: ' . $e->getMessage(), [
-            'position' => 'center',
-            'timer' => 30000,
-            'toast' => false,
-            'showConfirmButton' => true,
-        ]);
-    } catch (\Exception $e) {
-        Log::error('Error while adding stock: ' . $e->getMessage());
-        $this->alert('error', 'An error occurred: ' . $e->getMessage(), [
-            'position' => 'center',
-            'timer' => 30000,
-            'toast' => false,
-            'showConfirmButton' => true,
-        ]);
+        $this->alert('success', 'Stock updated successfully!');
     }
-}
 
 
 
-    
 
     public function deleteStock($stockId)
     {
