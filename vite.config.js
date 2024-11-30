@@ -13,6 +13,6 @@ export default defineConfig({
   ],
   server: {
     host: 'localhost',
-    port: process.env.VITE_PORT || 5173,  // default Vite port
+    port: process.env.VITE_PORT || 5172,  // default Vite port
   },
 });

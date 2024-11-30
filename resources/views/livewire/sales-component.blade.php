@@ -115,7 +115,7 @@
                     @foreach ($sales as $sale)
                         <tr>
                             <td class="border p-2">{{ $sale->product->name }}</td>
-                            <td class="border p-2">{{ $sale->stock->stock_code }}</td>
+                            <td class="border p-2">{{ $sale->stock->stock_batch_number }}</td>
                             <td class="border p-2">{{ $sale->quantity }}</td>
                             <td class="border p-2">{{ number_format($sale->price_per_unit, 2) }}</td>
                             <td class="border p-2">{{ number_format($sale->total_price, 2) }}</td>

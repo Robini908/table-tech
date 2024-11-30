@@ -159,7 +159,7 @@ class StockManager extends Component
     $this->price_per_unit = $product ? $product->price : 0;
     $productName = $product ? $product->name : 'Product'; // Default to 'Product' if not found
 
-    // Perform additional validations
+    // Check if stock already exists for the product
     if ($this->isDuplicateStock($this->product_id)) {
         $this->alert('error', 'Stock for "' . $productName . '" already exists.', [
             'position' => 'center',
@@ -167,9 +167,10 @@ class StockManager extends Component
             'toast' => false,
             'showConfirmButton' => true,
         ]);
-        return; // Form stays open
+        return;
     }
 
+    // Validate stock quantity is greater than zero
     if (!$this->isValidStockQuantity($this->newStockQuantity)) {
         $this->alert('error', 'Stock quantity for "' . $productName . '" must be greater than zero.', [
             'position' => 'center',
@@ -177,9 +178,10 @@ class StockManager extends Component
             'toast' => false,
             'showConfirmButton' => true,
         ]);
-        return; // Form stays open
+        return;
     }
 
+    // Ensure price consistency with previous stock entries
     if (!$this->isConsistentPrice($this->product_id, $this->price_per_unit)) {
         $this->alert('error', 'Price per unit for "' . $productName . '" is inconsistent with previous stock entries.', [
             'position' => 'center',
@@ -187,9 +189,10 @@ class StockManager extends Component
             'toast' => false,
             'showConfirmButton' => true,
         ]);
-        return; // Form stays open
+        return;
     }
 
+    // Check if the addition exceeds storage capacity
     if (!$this->hasSufficientCapacity($this->newStockQuantity)) {
         $this->alert('error', 'Adding stock for "' . $productName . '" exceeds storage capacity.', [
             'position' => 'center',
@@ -197,10 +200,10 @@ class StockManager extends Component
             'toast' => false,
             'showConfirmButton' => true,
         ]);
-        return; // Form stays open
+        return;
     }
 
-    // Validate user inputs using Livewire validation
+    // Validate input fields
     $validated = $this->validate([
         'product_id' => 'required|exists:products,id',
         'newStockQuantity' => 'required|numeric|min:1',
@@ -208,9 +211,8 @@ class StockManager extends Component
         'output_per_unit' => 'required|numeric|min:1',
     ]);
 
-    // Proceed to save the stock entry
+    // Save stock entry with error handling
     try {
-        // If validation passes, add the stock entry to the database
         $stock = Stock::create([
             'product_id' => $this->product_id,
             'quantity' => $this->newStockQuantity,
@@ -219,11 +221,11 @@ class StockManager extends Component
             'available_servings' => $this->newStockQuantity * $this->output_per_unit,
         ]);
 
-        // Reset fields and update stock status after successful addition
+        // Reset fields and update stock status
         $this->resetInputFields();
         $this->updateStockStatus();
 
-        // Success alert
+        // Success notification
         $this->alert('success', 'Stock for "' . $productName . '" added successfully!', [
             'position' => 'center',
             'timer' => 30000,
@@ -231,10 +233,7 @@ class StockManager extends Component
             'showConfirmButton' => true,
         ]);
     } catch (QueryException $e) {
-        // Handle database-specific query exceptions
         Log::error('Database error while adding stock: ' . $e->getMessage());
-
-        // Alert the user about the database error
         $this->alert('error', 'An error occurred while adding stock: ' . $e->getMessage(), [
             'position' => 'center',
             'timer' => 30000,
@@ -242,10 +241,7 @@ class StockManager extends Component
             'showConfirmButton' => true,
         ]);
     } catch (\Exception $e) {
-        // Handle any general exceptions
         Log::error('Error while adding stock: ' . $e->getMessage());
-
-        // Alert the user about the general error
         $this->alert('error', 'An error occurred: ' . $e->getMessage(), [
             'position' => 'center',
             'timer' => 30000,
@@ -254,6 +250,7 @@ class StockManager extends Component
         ]);
     }
 }
+
 
 
     
